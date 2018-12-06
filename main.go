@@ -26,15 +26,18 @@ func (app *App) getCurrencies() ([]string, error) {
 
 
 
-func (app *App) getPairs() (map[string]Pair, error) {
+func (app *App) getPairs() (pairList, error) {
 
 	resp, _ := app.Get("https://api.exmo.com/v1/ticker/")
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
-	result := make(map[string]struct{Bid string `json:"Buy_price"`; Ask string `json:"Sell_price"`})
+	result := make(map[string]struct{
+		Bid string `json:"Buy_price"`;
+		Ask string `json:"Sell_price"`
+		})
 	err := json.Unmarshal(body, &result)
 
-	pairs := make (map[string]Pair)
+	pairs := make (pairList)
 	for key, value := range result {
 		p := new(Pair)
 		p.Bid, _ = strconv.ParseFloat(value.Bid, 64)
@@ -44,7 +47,6 @@ func (app *App) getPairs() (map[string]Pair, error) {
 
 	return pairs, err
 }
-
 
 
 type Pair struct {
@@ -60,7 +62,47 @@ type Pair struct {
 }
 
 
+type pairList map[string]Pair
+
+
+func (pl *pairList) findPair(currency1 string, currency2 string) Pair {
+	if _,ok := (*pl)[currency1+"_"+currency2]; ok {
+		return (*pl)[currency1+"_"+currency2]
+	}else if _,ok := (*pl)[currency2+"_"+currency1]; ok{
+		return (*pl)[currency2+"_"+currency1]
+	}else{
+		return Pair{0, 0}
+	}
+}
+
+
+type profit struct {
+	multiply float64
+	profit float64
+	nextLink string
+}
+
+
+
+func FloydWarshall(currencies []string) {
+	for _, k := range currencies {
+		for _, i := range currencies {
+			for _, j := range currencies {
+				fmt.Println(k, i, j)
+
+			}
+		}
+	}
+}
+
+
 func main() {
 	app := new(App)
-	fmt.Println(app.getPairs())
+
+	currencies, err := app.getCurrencies()
+
+	pairs, err := app.getPairs()
+	fmt.Println(currencies, err)
+	fmt.Println(pairs.findPair("XMR", "GUSD"))
+
 }
