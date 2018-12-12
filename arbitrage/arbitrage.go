@@ -3,16 +3,28 @@ package arbitrage
 import (
 	"fmt"
 	"strings"
-	"ArbitrageFinder/provider"
-	"ArbitrageFinder/provider/exmo"
+	"ArbitrageFinder/exchange"
 )
 
 
 type Arbitrage struct {
-	provider provider.Provider
-	currencies []string
-	pairList PairList
-	table Table
+	Provider   exchange.Provider
+	Currencies []string
+	PairList   PairList
+	Table      Table
+}
+
+
+func NewArbitrage(p exchange.Provider) (Arbitrage) {
+	a := Arbitrage {
+		Provider: p,
+	}
+	a.Currencies, _ = a.Provider.GetCurrencies()
+	a.PairList, _ = a.Provider.GetPairs()
+	a.Table = a.GenerateTable()
+	a.FloydWarshall()
+
+	return a
 }
 
 
@@ -23,20 +35,6 @@ type Pair struct {
 
 
 type PairList map[string]Pair
-
-
-
-func NewArbitrage(provider provider.Provider) (Arbitrage) {
-	a := Arbitrage {
-		provider: provider,
-	}
-	a.currencies, _ = a.provider.GetCurrencies()
-	a.pairList, _ = a.provider.GetPairs()
-	a.table = a.generateTable()
-	a.FloydWarshall()
-
-	return a
-}
 
 
 type Table [][]chain
@@ -50,18 +48,18 @@ type chain struct {
 }
 
 
-func (a *Arbitrage) generateTable() Table {
-	numCurrencies := len(a.currencies)
+func (a *Arbitrage) GenerateTable() Table {
+	numCurrencies := len(a.Currencies)
 	t := make(Table, numCurrencies)
 	for k := 0; k < numCurrencies; k++ {
 		t[k] = make([]chain, numCurrencies)
 	}
-	for k, v := range a.pairList {
+	for k, v := range a.PairList {
 		c := strings.Split(k, "_")
 		i, j := a.getInd(c)
 
 		t[i][j] = chain{
-			product: v.Bid * (1 - exmo.Fee),
+			product: v.Bid * (1 - Fee),
 			kProfit: 1/v.Ask * (1 - fee),
 			nextLink: j,
 			visited: map[uint8]bool {i: true},
@@ -84,10 +82,10 @@ func (a *Arbitrage) getInd (c []string) (uint8, uint8) {
 	k := uint8(0)
 	for foundInd := 0; foundInd < 2; {
 		switch {
-		case a.currencies[k] == c[0]:
+		case a.Currencies[k] == c[0]:
 			i = k
 			foundInd++
-		case a.currencies[k] == c[1]:
+		case a.Currencies[k] == c[1]:
 			j = k
 			foundInd++
 		}
@@ -98,12 +96,12 @@ func (a *Arbitrage) getInd (c []string) (uint8, uint8) {
 
 
 func (a *Arbitrage) FloydWarshall() {
-	nCurrency := uint8(len(a.currencies))
+	nCurrency := uint8(len(a.Currencies))
 	var k, i, j uint8
 	for k = 0; k < nCurrency; k++ {
 		for i = 0; i < nCurrency; i++ {
 			for j = 0; j < nCurrency; j++ {
-				a.table[i][j] = a.compareChains(i, j, k)
+				a.Table[i][j] = a.compareChains(i, j, k)
 			}
 		}
 	}
@@ -111,10 +109,10 @@ func (a *Arbitrage) FloydWarshall() {
 
 
 func (a *Arbitrage) compareChains (i, j, k uint8) chain{
-	IJ := &a.table[i][j]
+	IJ := &a.Table[i][j]
 	if (IJ.kProfit != 0) && (i != j) && (i != k) && (j != k) {
-		IK := &a.table[i][k]
-		KJ := &a.table[k][j]
+		IK := &a.Table[i][k]
+		KJ := &a.Table[k][j]
 		if ((IK.product * KJ.product) > IJ.product) && (withoutRepeats(*IK, *KJ)) {
 			IJ.product = IK.product * KJ.product * (1 - fee)
 			IJ.nextLink = IK.nextLink
@@ -136,7 +134,7 @@ func withoutRepeats(IK, KJ chain) bool{
 
 
 func combineVisited (IK, KJ chain) map[uint8]bool {
-	for k, _ := range KJ.visited {
+	for k := range KJ.visited {
 		IK.visited[k] = true
 	}
 	return IK.visited
@@ -146,21 +144,21 @@ func (a *Arbitrage) calculateChains() {
 
 }
 
-func (a *Arbitrage) printChains() {
-	numCurrencies := uint8(len(a.currencies))
+func (a *Arbitrage) PrintChains() {
+	numCurrencies := uint8(len(a.Currencies))
 	var count uint8
 	var i, j uint8
 	for i = 0; i < numCurrencies; i++ {
 		for j = 0; j < numCurrencies; j++ {
-			if (i != j) && (a.table[i][j].product * a.table[i][j].kProfit > 1) {
-				fmt.Println(a.table[i][j].product * a.table[i][j].kProfit)
-				fmt.Print(a.currencies[i], "-->")
-				k := a.table[i][j].nextLink;
+			if (i != j) && (a.Table[i][j].product * a.Table[i][j].kProfit > 1) {
+				fmt.Println(a.Table[i][j].product * a.Table[i][j].kProfit)
+				fmt.Print(a.Currencies[i], "-->")
+				k := a.Table[i][j].nextLink
 				for  k != j {
-					fmt.Print(a.currencies[k], "-->")
-					k = a.table[k][j].nextLink
+					fmt.Print(a.Currencies[k], "-->")
+					k = a.Table[k][j].nextLink
 				}
-				fmt.Print(a.currencies[j], "-->", a.currencies[i], "\n")
+				fmt.Print(a.Currencies[j], "-->", a.Currencies[i], "\n")
 				count++
 			}
 		}

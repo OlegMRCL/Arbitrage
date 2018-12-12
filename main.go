@@ -2,19 +2,13 @@ package main
 
 import (
 	"ArbitrageFinder/arbitrage"
-	"ArbitrageFinder/provider/exmo"
+	"ArbitrageFinder/exchange"
 )
 
-
-
-
-
-
-
 func main() {
-	provider := getProvider("EXMO")
+	provider := exchange.GetProvider(exchange.ExmoProvider)
 	finder := arbitrage.NewArbitrage(provider)
 
-	finder.printChains()
+	finder.PrintChains()
 
 }

@@ -1,8 +1,8 @@
-package provider
+package exchange
 
 import (
-	"ArbitrageFinder/provider/exmo"
 	"ArbitrageFinder/arbitrage"
+	"ArbitrageFinder/exchange/exmo"
 )
 
 type Provider interface {
@@ -11,17 +11,11 @@ type Provider interface {
 }
 
 
-const (
-	exmoProvider    ProviderType = "EXMO"
-	binanceProvider ProviderType = "BINANCE"
-)
-
-
-func getProvider(pType ProviderType) Provider {
+func GetProvider(pType ProviderType) Provider {
 	switch pType {
-	case exmoProvider:
+	case ExmoProvider:
 		return new(exmo.Exmo)
-	case binanceProvider:
+	case BinanceProvider:
 		return nil //new(binanceProvider.Binance)
 	}
 	return nil
@@ -29,3 +23,11 @@ func getProvider(pType ProviderType) Provider {
 
 
 type ProviderType string
+
+
+const (
+	ExmoProvider    ProviderType = "EXMO"
+	BinanceProvider ProviderType = "BINANCE"
+)
+
+
