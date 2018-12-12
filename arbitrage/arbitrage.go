@@ -1,13 +1,15 @@
-package main
+package arbitrage
 
 import (
 	"fmt"
 	"strings"
+	"ArbitrageFinder/provider"
+	"ArbitrageFinder/provider/exmo"
 )
 
 
 type Arbitrage struct {
-	provider Provider
+	provider provider.Provider
 	currencies []string
 	pairList PairList
 	table Table
@@ -24,7 +26,7 @@ type PairList map[string]Pair
 
 
 
-func NewArbitrage(provider Provider) (Arbitrage) {
+func NewArbitrage(provider provider.Provider) (Arbitrage) {
 	a := Arbitrage {
 		provider: provider,
 	}
@@ -59,7 +61,7 @@ func (a *Arbitrage) generateTable() Table {
 		i, j := a.getInd(c)
 
 		t[i][j] = chain{
-			product: v.Bid * (1 - fee),
+			product: v.Bid * (1 - exmo.Fee),
 			kProfit: 1/v.Ask * (1 - fee),
 			nextLink: j,
 			visited: map[uint8]bool {i: true},
@@ -164,6 +166,6 @@ func (a *Arbitrage) printChains() {
 		}
 	}
 	if count == 0 {
-		fmt.Println("Arbitrage is not found")
+		fmt.Println("ArbitrageFinder is not found")
 	}
 }
