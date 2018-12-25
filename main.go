@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ArbitrageFinder/exchange"
+	"github.com/OlegMRCL/ArbitrageFinder/exchange"
 	"fmt"
 	"net/http"
 )
@@ -29,9 +29,9 @@ func main() {
 			fmt.Fprint(w,"Arbitrage is not found!")
 		} else {
 			for _, v := range results {
-				fmt.Fprint(w,"Profit: ", v.Profit)
+				fmt.Fprint(w,"Profit: ", v.Profit, "\n")
 				for _, i := range v.Path {
-					fmt.Print(exch.Currencies[i], "-->")
+					fmt.Fprint(w, exch.Currencies[i], "-->")
 				}
 				fmt.Fprint(w, exch.Currencies[v.Path[0]], "\n")
 			}
