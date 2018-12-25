@@ -1,4 +1,5 @@
 FROM golang
+RUN apk add --no-cache git make g++
 RUN go get github.com/OlegMRCL/ArbitrageFinder
 WORKDIR /go/src/github.com/OlegMRCL/ArbitrageFinder
 RUN go install
