@@ -40,7 +40,7 @@ func main() {
 	})
 
 	fmt.Println("Server is listening...")
-	http.ListenAndServe("localhost:8181", nil)
+	http.ListenAndServe(":8181", nil)
 
 }
 
