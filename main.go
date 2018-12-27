@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ArbitrageFinder/exchange"
+	"github.com/OlegMRCL/ArbitrageFinder/exchange"
 	"fmt"
 	"net/http"
 )
@@ -15,25 +15,17 @@ func main() {
 
 		provider := exchange.GetProvider(exchange.Exmo)
 
-		exch := exchange.NewExchange(provider)
+		exch := provider.NewExchange()
 
-		pt := exch.GetPriceTable()
-
-		at := exch.FindArbitrage(pt)
-
-		results := exch.GetProfitableChains(at, pt)
+		results := exch.FindArbitrage()
 
 		fmt.Println(results)
 
 		if len(results) == 0 {
 			fmt.Fprint(w,"Arbitrage is not found!")
 		} else {
-			for _, v := range results {
-				fmt.Fprint(w,"Profit: ", v.Profit)
-				for _, i := range v.Path {
-					fmt.Print(exch.Currencies[i], "-->")
-				}
-				fmt.Fprint(w, exch.Currencies[v.Path[0]], "\n")
+			for k, v := range results {
+				fmt.Fprint(w,"Profit: ", v, "\n", k)
 			}
 		}
 

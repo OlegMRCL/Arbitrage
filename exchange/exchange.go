@@ -1,14 +1,10 @@
 package exchange
 
-import (
-	"strings"
-)
-
 
 //Данные о бирже
 type Exchange struct {
 	Currencies []string		//список валют на бирже
-	PairList PairList		//список валютных пар на бирже
+	PriceTable PriceTable	//таблица межвалютных цен
 	Fee float64				//комиссия, взимаемая на бирже
 }
 
@@ -24,73 +20,10 @@ type Pair struct {
 }
 
 
-//Возвращает объект типа Exchange с полями, заполненными данными
-func NewExchange(p Provider) Exchange {
-	exch := Exchange{}
-	currencies, err := p.GetCurrencies()
-
-	if err == nil {
-		pairList, err := p.GetPairs()
-
-		if err == nil {
-			fee := p.GetFee()
-
-			exch.Currencies = currencies
-			exch.PairList = pairList
-			exch.Fee = fee
-		}
-	}
-	return exch
-}
-
-
 //В таблице PriceTable храянятся цены валют:
 // в ячейке [i][j] указана цена валюты i в валюте j,
 // а в ячейке [j][i] - валюты j в валюте i.
 type PriceTable [][] float64
-
-
-//Возвращает заполненную матрицу PriceTable
-func (e *Exchange) GetPriceTable() PriceTable {
-	numCurr := len(e.Currencies)
-
-	pt := make(PriceTable, numCurr)
-	for k := 0; k < numCurr; k++ {
-		pt[k] = make([]float64, numCurr)
-	}
-
-	for k, v := range e.PairList {
-		currs := strings.Split(k, "_")
-		i, j := e.getInd(currs)
-
-		pt[i][j] = v.Bid
-		pt[j][i] = 1/v.Ask
-	}
-
-	return pt
-}
-
-
-//Принимает срез с названиями валют,
-// возвращает их индексы в срезе e.Currencies
-// (только для двух первых валют в передаваемом срезе!)
-func (e *Exchange) getInd (c []string) (i,j int) {
-	k := 0
-	for foundInd := 0; foundInd < 2; {
-
-		switch {
-		case e.Currencies[k] == c[0]:
-			i = k
-			foundInd++
-		case e.Currencies[k] == c[1]:
-			j = k
-			foundInd++
-		}
-		k++
-
-	}
-	return i, j
-}
 
 
 //В матрице ArbitrageTable каждой ячейке [i][j] соответствует цепочка межвалютных обменов,
@@ -132,46 +65,39 @@ func (e *Exchange) generateTable(pt PriceTable) ArbitrageTable{
 //Создает и возвращает матрицу ArbitrageTable, заполненную цепочками chain с наибольшим значением product.
 // Поиск наивыгоднейших цепочек работает на основе видоизмененного
 // алгоритма Флойда-Уоршелла (аддитивная группа заменена на мултипликативную)
-func (e *Exchange) FindArbitrage(pt PriceTable) (at ArbitrageTable){
+func (e *Exchange) FindArbitrage() (results Results){
 
-	at = e.generateTable(pt)
+	at := e.generateTable(e.PriceTable)
 
-	numCurr := len(pt)
+	numCurr := len(e.PriceTable)
 
 	for k := 0; k < numCurr; k++ {
 		for i := 0; i < numCurr; i++ {
 			for j := 0; j < numCurr; j++ {
-				at[i][j] = at.bestChain(i, j, k)
+
+				if (i==j) && (at[i][j].product > 1) {
+
+					path := e.Currencies[i]
+					point := at[i][j].nextLink
+
+					for point != i {
+						path = "-->" + e.Currencies[point]
+						point = at[point][j].nextLink
+					}
+
+					results[path] = at[i][j].product
+				}
+
+				at[i][j] = at.checkChains(i, j, k)
 			}
 		}
 	}
 
-	return at
+	return results
 }
 
 
-//Возвращает цепочку, выбранную как наивыгоднейшую:
-// выбирает между исходной цепочкой IJ и предлагаемой IKJ, сочлененной из IK и KJ.
-func (at *ArbitrageTable) bestChain(i, j, k int) chain  {
-	IJ := (*at)[i][j]
-
-	//if (i != j) && (i != k) && (j != k) {
-	IK := (*at)[i][k]
-	KJ := (*at)[k][j]
-
-	if noMatchingPoints(IK, KJ) {
-
-		if IJ.product < (IK.product * KJ.product) {
-			IJ.product = IK.product * KJ.product
-			IJ.nextLink = IK.nextLink
-			IJ.visited = joinVisited(IK, KJ)
-		}
-	}
-	//}
-
-	return IJ
-}
-
+type Results map[string]float64
 
 //Данные о цепочке, признанной выгодной (Profit > 1)
 type Result struct {
@@ -180,45 +106,29 @@ type Result struct {
 }
 
 
-//Ищет в матрице ArbitrageTable цепочки с положительной прибылью
-func (e *Exchange) GetProfitableChains(at ArbitrageTable, pt PriceTable) (Results []Result) {
+//Возвращает цепочку, выбранную как наивыгоднейшую:
+// выбирает между исходной цепочкой IJ и предлагаемой IKJ, сочлененной из IK и KJ.
+func (at *ArbitrageTable) checkChains(i, j, k int) chain  {
+	IJ := (*at)[i][j]
+	IK := (*at)[i][k]
+	KJ := (*at)[k][j]
 
-	numCurr := len(e.Currencies)
-	for i := 0; i < numCurr; i++ {
-		for j := 0; j < numCurr; j++ {
+	if noMatchingPoints(IK, KJ) {
 
-			//Профит (как относитлеьная величина) равен произведению всех цен в цепочке at[i][j],
-			// умноженному на "обратную" цену и минус комиссия.
-			// Если профит > 1, то заносим в срез результатов поиска данные по профитной цепочке.
-			if profit := at[i][j].product * pt[j][i] * (1 - e.Fee); profit > 1 {
-
-				r := Result{
-					Profit: profit,
-					Path:   at.getPath(i,j),
-				}
-
-				Results = append(Results, r)
-			}
-		}
+		IJ = bestChain(IJ, IK, KJ)
 	}
 
-	return Results
+	return IJ
 }
 
 
-//Возвращает срез, состоящий из валют цепочки at[i][j]
-func (at *ArbitrageTable) getPath(i,j int) (path []int) {
-
-	chain := (*at)[i][j]
-	path = append(path, i)
-
-	for i != j {
-		i = chain.nextLink
-		path = append(path, i)
-		chain = (*at)[i][j]
+func bestChain(IJ, IK, KJ chain) chain {
+	if IJ.product < (IK.product * KJ.product) {
+		IJ.product = IK.product * KJ.product
+		IJ.nextLink = IK.nextLink
+		IJ.visited = joinVisited(IK, KJ)
 	}
-
-	return path
+	return IJ
 }
 
 

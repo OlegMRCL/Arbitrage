@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"strconv"
+	"strings"
 )
 
 type ExmoProvider struct {
@@ -20,8 +21,25 @@ const (
 )
 
 
+//Возвращает объект типа Exchange с полями, заполненными данными
+func (e *ExmoProvider) NewExchange() (Exchange) {
+
+	currencies, _ := e.getCurrencies()
+
+	priceTable := e.getPriceTable(currencies)
+
+	fee := e.getFee()
+
+	return Exchange {
+		Currencies: currencies,
+		PriceTable: priceTable,
+		Fee: fee,
+	}
+}
+
+
 //Возвращает список валют биржи
-func (e *ExmoProvider) GetCurrencies() (currencies []string, err error) {
+func (e *ExmoProvider) getCurrencies() (currencies []string, err error) {
 	resp, err := e.Get(host + endpointCurrency)
 	if err == nil {
 		defer resp.Body.Close()
@@ -34,8 +52,31 @@ func (e *ExmoProvider) GetCurrencies() (currencies []string, err error) {
 }
 
 
+//Возвращает заполненную матрицу PriceTable
+func (e *ExmoProvider) getPriceTable(currencies []string) PriceTable {
+	pairs, _ := e.getPairs()
+
+	numCurr := len(currencies)
+
+	pt := make(PriceTable, numCurr)
+	for k := 0; k < numCurr; k++ {
+		pt[k] = make([]float64, numCurr)
+	}
+
+	for k, v := range pairs {
+		c := strings.Split(k, "_")
+		i, j := getInd(c, currencies)
+
+		pt[i][j] = v.Bid
+		pt[j][i] = 1/v.Ask
+	}
+
+	return pt
+}
+
+
 //Возвращает список валютных пар с ценами спроса и предложения
-func (e *ExmoProvider) GetPairs() (pairs PairList, err error) {
+func (e *ExmoProvider) getPairs() (pairs PairList, err error) {
 
 	pairs = make (PairList)
 	resp, err := e.Get(host + endpointTicker)
@@ -65,6 +106,31 @@ func (e *ExmoProvider) GetPairs() (pairs PairList, err error) {
 
 
 //Возвращает действующую на бирже комиссию
-func (e *ExmoProvider) GetFee() (float64) {
+func (e *ExmoProvider) getFee() (float64) {
 	return Fee
 }
+
+
+//Принимает срез с названиями валют,
+// возвращает их индексы в срезе e.Currencies
+// (только для двух первых валют в передаваемом срезе!)
+func getInd (c []string, currencies []string) (i,j int) {
+	k := 0
+	for foundInd := 0; foundInd < 2; {
+
+		switch {
+		case currencies[k] == c[0]:
+			i = k
+			foundInd++
+		case currencies[k] == c[1]:
+			j = k
+			foundInd++
+		}
+		k++
+
+	}
+	return i, j
+}
+
+
+

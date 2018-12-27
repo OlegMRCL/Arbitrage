@@ -1,9 +1,11 @@
 package exchange
 
 type Provider interface {
-	GetCurrencies() ([]string, error)
-	GetPairs() (PairList, error)
-	GetFee() (float64)
+	getCurrencies() ([]string, error)
+	getPairs() (PairList, error)
+	getPriceTable([]string) (PriceTable)
+	getFee() (float64)
+	NewExchange() (Exchange)
 }
 
 
