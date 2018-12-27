@@ -9,17 +9,6 @@ type Exchange struct {
 }
 
 
-//Список валютных пар
-type PairList map[string]Pair
-
-
-//Данные о валютной паре
-type Pair struct {
-	Bid float64		//цена спроса
-	Ask float64		//цена предложения
-}
-
-
 //В таблице PriceTable храянятся цены валют:
 // в ячейке [i][j] указана цена валюты i в валюте j,
 // а в ячейке [j][i] - валюты j в валюте i.
@@ -34,26 +23,23 @@ type ArbitrageTable [][]chain
 //Данные о цепочке межвалютных обменов
 type chain struct {
 	product  float64		//произведение всех межвалютных цен в цепочке
-	nextLink int			//индекс второй валюты в цепочке
-	visited map[int]bool	//список "посещенных" валют цепочки (включая первую, и не включая последнюю)
+	path []int				//список индексов валют в цепочке
 }
 
 
-//Создает матрицу ArbitrageTable и заполняет ее начальными chain
-func (e *Exchange) generateTable(pt PriceTable) ArbitrageTable{
+//Создает матрицу ArbitrageTable и заполняет ее начальными цепочками chain
+func (e *Exchange) generateTable() ArbitrageTable{
 	numCurr := len(e.Currencies)
 
 	at := make(ArbitrageTable, numCurr)
-	var i, j int
-	for i = 0; i < numCurr; i++ {
+	for i := 0; i < numCurr; i++ {
 
 		at[i] = make([]chain, numCurr)
-		for j = 0; j < numCurr; j++ {
+		for j := 0; j < numCurr; j++ {
 
 			at[i][j] = chain{
-				product: pt[i][j] * (1 - e.Fee),
-				nextLink: j,
-				visited: map[int]bool {i: true},
+				product: e.PriceTable[i][j] * (1 - e.Fee),
+				path: []int {i},
 			}
 		}
 	}
@@ -62,12 +48,14 @@ func (e *Exchange) generateTable(pt PriceTable) ArbitrageTable{
 }
 
 
-//Создает и возвращает матрицу ArbitrageTable, заполненную цепочками chain с наибольшим значением product.
+//Создает матрицу ArbitrageTable, заполненную цепочками chain с наибольшим значением product.
+// Возвращает список профитных цепочек.
 // Поиск наивыгоднейших цепочек работает на основе видоизмененного
 // алгоритма Флойда-Уоршелла (аддитивная группа заменена на мултипликативную)
 func (e *Exchange) FindArbitrage() (results Results){
 
-	at := e.generateTable(e.PriceTable)
+	at := e.generateTable()
+	results = make(Results)
 
 	numCurr := len(e.PriceTable)
 
@@ -75,20 +63,18 @@ func (e *Exchange) FindArbitrage() (results Results){
 		for i := 0; i < numCurr; i++ {
 			for j := 0; j < numCurr; j++ {
 
+				at[i][j] = at.checkChains(i, j, k)
+
 				if (i==j) && (at[i][j].product > 1) {
 
-					path := e.Currencies[i]
-					point := at[i][j].nextLink
-
-					for point != i {
-						path = "-->" + e.Currencies[point]
-						point = at[point][j].nextLink
+					pathString := ""
+					for _, v := range at[i][j].path {
+						pathString += e.Currencies[v] + "-->"
 					}
+					pathString += e.Currencies[i]
 
-					results[path] = at[i][j].product
+					results[pathString] = at[i][j].product
 				}
-
-				at[i][j] = at.checkChains(i, j, k)
 			}
 		}
 	}
@@ -98,12 +84,6 @@ func (e *Exchange) FindArbitrage() (results Results){
 
 
 type Results map[string]float64
-
-//Данные о цепочке, признанной выгодной (Profit > 1)
-type Result struct {
-	Profit float64		//относительная величина профита
-	Path []int			//валютный "маршрут"
-}
 
 
 //Возвращает цепочку, выбранную как наивыгоднейшую:
@@ -125,8 +105,7 @@ func (at *ArbitrageTable) checkChains(i, j, k int) chain  {
 func bestChain(IJ, IK, KJ chain) chain {
 	if IJ.product < (IK.product * KJ.product) {
 		IJ.product = IK.product * KJ.product
-		IJ.nextLink = IK.nextLink
-		IJ.visited = joinVisited(IK, KJ)
+		IJ.path = joinPath(IK, KJ)
 	}
 	return IJ
 }
@@ -135,21 +114,28 @@ func bestChain(IJ, IK, KJ chain) chain {
 //Проверяет две цепочки на отсутствие повторяющихся точек-валют в их "маршрутах"
 func noMatchingPoints(IK, KJ chain) bool{
 
-	for k, v := range IK.visited {
-		if v && KJ.visited[k] {
+	visited := make(map[int]bool)
+
+	for _,v := range IK.path {
+		visited[v] = true
+	}
+
+	for _,v := range KJ.path {
+		if visited[v] == true {
 			return false
 		}
 	}
+
 	return true
 }
 
 
-//Возвращает объединенный список "посещенных" валют двух цепочек
-func joinVisited(IK, KJ chain) map[int]bool {
-	for k := range KJ.visited {
-		IK.visited[k] = true
-	}
-	return IK.visited
+//Возвращает путь из I в J через K
+func joinPath(IK, KJ chain) []int {
+
+	IK.path = append (IK.path, KJ.path...)
+
+	return IK.path
 }
 
 

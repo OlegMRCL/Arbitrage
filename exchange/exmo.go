@@ -20,6 +20,16 @@ const (
 	Fee = 0.002
 )
 
+//Список валютных пар
+type PairList map[string]Pair
+
+
+//Данные о валютной паре
+type Pair struct {
+	Bid float64		//цена спроса
+	Ask float64		//цена предложения
+}
+
 
 //Возвращает объект типа Exchange с полями, заполненными данными
 func (e *ExmoProvider) NewExchange() (Exchange) {
@@ -101,6 +111,7 @@ func (e *ExmoProvider) getPairs() (pairs PairList, err error) {
 			}
 		}
 	}
+
 	return
 }
 
