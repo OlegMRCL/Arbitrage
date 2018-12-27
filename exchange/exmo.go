@@ -1,9 +1,9 @@
 package exchange
 
 import (
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"strconv"
 	"strings"
 )
@@ -13,9 +13,9 @@ type ExmoProvider struct {
 }
 
 const (
-	host = "https://api.exmo.com"
+	host             = "https://api.exmo.com"
 	endpointCurrency = "/v1/currency/"
-	endpointTicker = "/v1/ticker/"
+	endpointTicker   = "/v1/ticker/"
 
 	Fee = 0.002
 )
@@ -23,16 +23,14 @@ const (
 //Список валютных пар
 type PairList map[string]Pair
 
-
 //Данные о валютной паре
 type Pair struct {
-	Bid float64		//цена спроса
-	Ask float64		//цена предложения
+	Bid float64 //цена спроса
+	Ask float64 //цена предложения
 }
 
-
 //Возвращает объект типа Exchange с полями, заполненными данными
-func (e *ExmoProvider) NewExchange() (Exchange) {
+func (e *ExmoProvider) NewExchange() Exchange {
 
 	currencies, _ := e.getCurrencies()
 
@@ -40,13 +38,12 @@ func (e *ExmoProvider) NewExchange() (Exchange) {
 
 	fee := e.getFee()
 
-	return Exchange {
+	return Exchange{
 		Currencies: currencies,
 		PriceTable: priceTable,
-		Fee: fee,
+		Fee:        fee,
 	}
 }
-
 
 //Возвращает список валют биржи
 func (e *ExmoProvider) getCurrencies() (currencies []string, err error) {
@@ -60,7 +57,6 @@ func (e *ExmoProvider) getCurrencies() (currencies []string, err error) {
 	}
 	return
 }
-
 
 //Возвращает заполненную матрицу PriceTable
 func (e *ExmoProvider) getPriceTable(currencies []string) PriceTable {
@@ -78,25 +74,24 @@ func (e *ExmoProvider) getPriceTable(currencies []string) PriceTable {
 		i, j := getInd(c, currencies)
 
 		pt[i][j] = v.Bid
-		pt[j][i] = 1/v.Ask
+		pt[j][i] = 1 / v.Ask
 	}
 
 	return pt
 }
 
-
 //Возвращает список валютных пар с ценами спроса и предложения
 func (e *ExmoProvider) getPairs() (pairs PairList, err error) {
 
-	pairs = make (PairList)
+	pairs = make(PairList)
 	resp, err := e.Get(host + endpointTicker)
 
-	if err == nil{
+	if err == nil {
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
 
 		if err == nil {
-			result := make(map[string]struct{
+			result := make(map[string]struct {
 				Bid string `json:"Buy_price"`
 				Ask string `json:"Sell_price"`
 			})
@@ -115,17 +110,15 @@ func (e *ExmoProvider) getPairs() (pairs PairList, err error) {
 	return
 }
 
-
 //Возвращает действующую на бирже комиссию
-func (e *ExmoProvider) getFee() (float64) {
+func (e *ExmoProvider) getFee() float64 {
 	return Fee
 }
-
 
 //Принимает срез с названиями валют,
 // возвращает их индексы в срезе e.Currencies
 // (только для двух первых валют в передаваемом срезе!)
-func getInd (c []string, currencies []string) (i,j int) {
+func getInd(c []string, currencies []string) (i, j int) {
 	k := 0
 	for foundInd := 0; foundInd < 2; {
 
@@ -142,6 +135,3 @@ func getInd (c []string, currencies []string) (i,j int) {
 	}
 	return i, j
 }
-
-
-

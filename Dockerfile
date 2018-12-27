@@ -5,6 +5,6 @@ WORKDIR /go/src/github.com/OlegMRCL/ArbitrageFinder
 RUN go install
 
 ENTRYPOINT /go/bin/ArbitrageFinder
-EXPOSE 8181 80
+EXPOSE 8181
 
 

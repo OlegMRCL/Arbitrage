@@ -1,26 +1,25 @@
 package main
 
 import (
-	"github.com/OlegMRCL/ArbitrageFinder/exchange"
 	"fmt"
+	"github.com/OlegMRCL/ArbitrageFinder/exchange"
 	"net/http"
 )
 
-
 func main() {
 
-	http.HandleFunc("/exmo", func(w http.ResponseWriter, r *http.Request){
+	http.HandleFunc("/exmo", func(w http.ResponseWriter, r *http.Request) {
 
 		provider := exchange.GetProvider(exchange.Exmo)
 		exch := provider.NewExchange()
 
 		results := exch.FindArbitrage()
 
-		fmt.Println(len(results), "chains were found")
+		fmt.Println(len(results), "chains were found \n")
 		fmt.Fprintln(w, len(results), "chains were found \n")
 
 		for k, v := range results {
-			fmt.Fprintln(w,"Profit: ", v, "\n", k, "\n")
+			fmt.Fprintln(w, "Profit: ", v, "\n", k, "\n")
 		}
 	})
 
@@ -28,4 +27,3 @@ func main() {
 	http.ListenAndServe(":8181", nil)
 
 }
-

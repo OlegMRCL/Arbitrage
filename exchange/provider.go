@@ -3,14 +3,12 @@ package exchange
 type Provider interface {
 	getCurrencies() ([]string, error)
 	getPairs() (PairList, error)
-	getPriceTable([]string) (PriceTable)
-	getFee() (float64)
-	NewExchange() (Exchange)
+	getPriceTable([]string) PriceTable
+	getFee() float64
+	NewExchange() Exchange
 }
 
-
 type ProviderType string
-
 
 const (
 	Exmo    ProviderType = "EXMO"
@@ -27,8 +25,3 @@ func GetProvider(pType ProviderType) Provider {
 	}
 	return nil
 }
-
-
-
-
-
